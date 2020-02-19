@@ -169,50 +169,65 @@ void parseToLexems(string formula) {
             int operand3 = vars.top();
             vars.pop();
             if (temp == NULL) {
+                //if there is not root -> create new root
                 temp = new Lexema<int>();
                 
+                //setup type of operation
                 temp->opCode = getOperator(operand1);
                 
+                //setup left operand
                 temp->leftOperand = new Lexema<int>();
                 temp->leftOperand->opCode = Operator::constanta;
                 temp->leftOperand->value = operand2;
                 
+                //setup right operand
                 temp->rightOperand = new Lexema<int>();
                 temp->rightOperand->opCode = Operator::constanta;
                 temp->rightOperand->value = operand3;
             }else{
+                //root exists, so we attach tempLeaf to new root and add right leaf
+                
+                //temp leaf is left now, so we copy pointer
                 Lexema<int>* leftLeaf = temp;
                 
+                //alocating memory for new root
                 temp = new Lexema<int>();
-                temp->leftOperand = leftLeaf;
-                temp->opCode = getOperator(operand1);
-                temp->rightOperand = new Lexema<int>();
                 
+                //place old temp to left leaf
+                temp->leftOperand = leftLeaf;
+                
+                //setup type of operation
+                temp->opCode = getOperator(operand1);
+                
+                //setup right operand
+                temp->rightOperand = new Lexema<int>();
                 temp->rightOperand->opCode = Operator::constanta;
                 temp->rightOperand->value = operand2;
                 
             }
-            
-            
+            //redunant TODO: change this
             vars.push(operand2 + operand3);
         }else {
+            //redunant TODO: change this
             vars.push(charToInt(operand1));
         }
     }
+    
+    //log initial expression
     cout << printLexemTree(temp) << endl;
 }
 
-//template<typename T>
-//string lexemsToAsm(vector<Lexema<T>> lexems) {
-//
-//}
+template<typename T>
+string lexemsToAsm(vector<Lexema<T>> lexems) {
+
+}
 
 
 
 
 int main(int argc, const char * argv[]) {
     
-    
+    //input formula
     string formula;
     cout << "Enter formula: ";
     getline(cin , formula);
