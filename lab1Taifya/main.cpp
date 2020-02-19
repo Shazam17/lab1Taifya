@@ -11,7 +11,7 @@
 #include <vector>
 #include <stack>
 #include <queue>
-
+#include <sstream>
 
 //MARK: - FORMULA
 //MARK: - z = 2y^4 + x – 2 == z = 2y + x – 2
@@ -25,7 +25,8 @@ enum Operator {
     divide,
     multiply,
     constanta,
-    pointer
+    pointer,
+    error
 };
 
 template<typename T>
@@ -33,9 +34,9 @@ struct Lexema {
     Operator opCode;
     T value = NULL;
     string varName;
-    string pAdress = NULL;
-    Lexema<T>* leftOperand;
-    Lexema<T>* rightOperand;
+    
+    Lexema<T>* leftOperand = nullptr;
+    Lexema<T>* rightOperand = nullptr;
 };
 
 int getPrecedence(char op) {
@@ -50,6 +51,49 @@ int getPrecedence(char op) {
 
 int charToInt(char val){
     return (int)val - (int)48;
+}
+
+Operator getOperator(char val) {
+        switch (val) {
+        case '+':
+           return Operator::plus;
+            break;
+        case '-':
+            return Operator::minus;
+            break;
+        case '*':
+            return Operator::multiply;
+            break;
+        case '/':
+            return Operator::divide;
+            break;
+        default:
+            return Operator::error;
+            break;
+    }
+}
+template<typename T>
+string printLexemTree(Lexema<T>* rootLexema) {
+    if (rootLexema != nullptr){
+        if (rootLexema->opCode == Operator::plus ) {
+            return printLexemTree(rootLexema->leftOperand) + " + " + printLexemTree(rootLexema->rightOperand);
+        }
+        if (rootLexema->opCode == Operator::minus ) {
+            return printLexemTree(rootLexema->leftOperand) + " - " + printLexemTree(rootLexema->rightOperand);
+        }
+        if (rootLexema->opCode == Operator::multiply ) {
+            return printLexemTree(rootLexema->leftOperand) + " * " + printLexemTree(rootLexema->rightOperand);
+        }
+        if (rootLexema->opCode == Operator::divide ) {
+            return printLexemTree(rootLexema->leftOperand) + " / " + printLexemTree(rootLexema->rightOperand);
+        }
+        if (rootLexema->opCode == Operator::constanta) {
+            stringstream ss;
+            ss << rootLexema->value;
+            return ss.str();
+        }
+    }
+     return " ";
 }
 
 template<typename T>
@@ -119,32 +163,15 @@ void parseToLexems(string formula) {
     while(!output.empty()){
         char operand1 = output.front();
         output.pop();
-        cout << "operand now is : "<<operand1 << endl;
         if ( operand1 == '-' || operand1 == '+' || operand1 == '*' || operand1 == '/'){
             int operand2 = vars.top();
             vars.pop();
             int operand3 = vars.top();
             vars.pop();
-            cout << "operand1 : " << operand2 << ' ' << operand1 << ' ' << "operand2 : " << operand3 << '|' << operand2 + operand3 << endl;
             if (temp == NULL) {
                 temp = new Lexema<int>();
                 
-                switch (operand1) {
-                    case '+':
-                        temp->opCode = Operator::plus;
-                        break;
-                    case '-':
-                        temp->opCode = Operator::minus;
-                        break;
-                    case '*':
-                        temp->opCode = Operator::multiply;
-                        break;
-                    case '/':
-                        temp->opCode = Operator::divide;
-                        break;
-                    default:
-                        break;
-                }
+                temp->opCode = getOperator(operand1);
                 
                 temp->leftOperand = new Lexema<int>();
                 temp->leftOperand->opCode = Operator::constanta;
@@ -158,8 +185,11 @@ void parseToLexems(string formula) {
                 
                 temp = new Lexema<int>();
                 temp->leftOperand = leftLeaf;
+                temp->opCode = getOperator(operand1);
                 temp->rightOperand = new Lexema<int>();
                 
+                temp->rightOperand->opCode = Operator::constanta;
+                temp->rightOperand->value = operand2;
                 
             }
             
@@ -169,13 +199,15 @@ void parseToLexems(string formula) {
             vars.push(charToInt(operand1));
         }
     }
-    
+    cout << printLexemTree(temp) << endl;
 }
 
 //template<typename T>
 //string lexemsToAsm(vector<Lexema<T>> lexems) {
 //
 //}
+
+
 
 
 int main(int argc, const char * argv[]) {
