@@ -12,6 +12,8 @@
 #include <stack>
 #include <queue>
 #include <sstream>
+#include <algorithm>
+
 
 //MARK: - FORMULA
 //MARK: - z = 2y^4 + x – 2 == z = 2y + x – 2
@@ -72,21 +74,30 @@ Operator getOperator(char val) {
             break;
     }
 }
+
+string getStringOfOperator(Operator opCode){
+    if (opCode == Operator::plus ) {
+        return " + ";
+    }
+    if (opCode == Operator::minus ) {
+        return " - ";
+    }
+    if (opCode == Operator::multiply ) {
+        return " * ";
+    }
+    if (opCode == Operator::divide ) {
+        return " / ";
+    }
+    return " ";
+}
+
 template<typename T>
 string printLexemTree(Lexema<T>* rootLexema) {
     if (rootLexema != nullptr){
-        if (rootLexema->opCode == Operator::plus ) {
-            return printLexemTree(rootLexema->leftOperand) + " + " + printLexemTree(rootLexema->rightOperand);
+        if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide ){
+            return printLexemTree(rootLexema->leftOperand) + getStringOfOperator(rootLexema->opCode) + printLexemTree(rootLexema->rightOperand);
         }
-        if (rootLexema->opCode == Operator::minus ) {
-            return printLexemTree(rootLexema->leftOperand) + " - " + printLexemTree(rootLexema->rightOperand);
-        }
-        if (rootLexema->opCode == Operator::multiply ) {
-            return printLexemTree(rootLexema->leftOperand) + " * " + printLexemTree(rootLexema->rightOperand);
-        }
-        if (rootLexema->opCode == Operator::divide ) {
-            return printLexemTree(rootLexema->leftOperand) + " / " + printLexemTree(rootLexema->rightOperand);
-        }
+        
         if (rootLexema->opCode == Operator::constanta) {
             stringstream ss;
             ss << rootLexema->value;
@@ -97,8 +108,19 @@ string printLexemTree(Lexema<T>* rootLexema) {
 }
 
 template<typename T>
+bool isInVector(T symbol, vector<T> v) {
+    if (find(v.begin(),v.end(), symbol) != v.end()){
+        return true;
+    }else {
+        return false;
+    }
+}
+
+//parsing formula to extract lexems
+template<typename T>
 void parseToLexems(string formula) {
-    //parsing formula to extract lexems
+    
+    vector<char> varList{ 'x' , 'y' };
     queue<char> input;
     queue<char> output;
     stack<char> opStack;
@@ -117,7 +139,7 @@ void parseToLexems(string formula) {
         if (val == '+' || val == '-'  || val == '*' || val == '/') {
             if (!opStack.empty()){
                 char top = opStack.top();
-                if((getPrecedence(top) >= getPrecedence(val) || val == '-')) {
+                if((getPrecedence(top) > getPrecedence(val) || val == '-')) {
                    while(!opStack.empty()){
                        char op = opStack.top();
                        opStack.pop();
@@ -127,7 +149,7 @@ void parseToLexems(string formula) {
                 }
             }
             opStack.push(val);
-        }else if (val != ' '){
+        }else if (isInVector(val,varList)){
             output.push(val);
         }
     }
@@ -140,7 +162,7 @@ void parseToLexems(string formula) {
     }
     
     //print output RPN string to the console
-    queue<char> tStack = output;
+    queue<T> tStack = output;
     while(!tStack.empty()){
         char val = tStack.front();
         tStack.pop();
@@ -148,8 +170,9 @@ void parseToLexems(string formula) {
     }
     cout << endl;
     
-    stack<int> vars;
-    Lexema<int>* rootLexema = new Lexema<int>();
+    stack<T> vars;
+    //TODO: - make re-asignin temp to root as right leaf , left leaft is some variable
+    Lexema<T>* rootLexema = new Lexema<T>();
     
     
     //z equals our expression
@@ -158,40 +181,46 @@ void parseToLexems(string formula) {
 //    rootLexema->leftOperand->opCode = Operator::constanta;
 //    rootLexema->leftOperand->varName = "z";
     
-    Lexema<int>* temp = NULL; // = rootLexema;
+    Lexema<T>* temp = NULL; // = rootLexema;
     
     while(!output.empty()){
         char operand1 = output.front();
         output.pop();
         if ( operand1 == '-' || operand1 == '+' || operand1 == '*' || operand1 == '/'){
-            int operand2 = vars.top();
+            
+            //TODO: DEBUG on more than 4 vars
+            char operand2 = vars.top();
             vars.pop();
-            int operand3 = vars.top();
-            vars.pop();
+            char operand3;
+            if(!vars.empty()){
+                operand3 = vars.top();
+                vars.pop();
+            }
+            
             if (temp == NULL) {
                 //if there is not root -> create new root
-                temp = new Lexema<int>();
+                temp = new Lexema<T>();
                 
                 //setup type of operation
                 temp->opCode = getOperator(operand1);
                 
                 //setup left operand
-                temp->leftOperand = new Lexema<int>();
+                temp->leftOperand = new Lexema<T>();
                 temp->leftOperand->opCode = Operator::constanta;
                 temp->leftOperand->value = operand2;
                 
                 //setup right operand
-                temp->rightOperand = new Lexema<int>();
+                temp->rightOperand = new Lexema<T>();
                 temp->rightOperand->opCode = Operator::constanta;
                 temp->rightOperand->value = operand3;
             }else{
                 //root exists, so we attach tempLeaf to new root and add right leaf
                 
                 //temp leaf is left now, so we copy pointer
-                Lexema<int>* leftLeaf = temp;
+                Lexema<T>* leftLeaf = temp;
                 
                 //alocating memory for new root
-                temp = new Lexema<int>();
+                temp = new Lexema<T>();
                 
                 //place old temp to left leaf
                 temp->leftOperand = leftLeaf;
@@ -200,16 +229,13 @@ void parseToLexems(string formula) {
                 temp->opCode = getOperator(operand1);
                 
                 //setup right operand
-                temp->rightOperand = new Lexema<int>();
+                temp->rightOperand = new Lexema<T>();
                 temp->rightOperand->opCode = Operator::constanta;
                 temp->rightOperand->value = operand2;
                 
             }
-            //redunant TODO: change this
-            vars.push(operand2 + operand3);
         }else {
-            //redunant TODO: change this
-            vars.push(charToInt(operand1));
+            vars.push(operand1);
         }
     }
     
@@ -231,7 +257,7 @@ int main(int argc, const char * argv[]) {
     string formula;
     cout << "Enter formula: ";
     getline(cin , formula);
-    parseToLexems<double>(formula);
+    parseToLexems<char>(formula);
     
     
     return 0;
