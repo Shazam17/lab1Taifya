@@ -234,6 +234,7 @@ Lexema<T>* parseToLexems(string formula) {
     
     Lexema<T>* temp = NULL; // = rootLexema;
     int idCounter = 0;
+    bool flag = true;
     while(!output.empty()){
         char operand1 = output.front();
         output.pop();
@@ -243,7 +244,7 @@ Lexema<T>* parseToLexems(string formula) {
             char operand2 = vars.top();
             vars.pop();
             char operand3;
-            if(!vars.empty()){
+            if(flag){
                 operand3 = vars.top();
                 vars.pop();
             }
@@ -268,6 +269,7 @@ Lexema<T>* parseToLexems(string formula) {
                 temp->rightOperand->value = operand3;
                 temp->rightOperand->id = idCounter;
                 idCounter++;
+                flag = false;
             }else{
                 //root exists, so we attach tempLeaf to new root and add right leaf
                 
