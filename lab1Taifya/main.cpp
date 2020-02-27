@@ -13,12 +13,42 @@
 #include <queue>
 #include <sstream>
 #include <algorithm>
-
+#include <variant>
 
 //MARK: - FORMULA
 //MARK: - z = 2y^4 + x – 2 == z = 2y + x – 2
 
 using namespace std;
+
+#define newLine '\n'
+
+string LOAD(string var) {
+    return "LOAD " + var + newLine;
+}
+
+string ADD(string var) {
+    return "ADD " + var + newLine;
+}
+
+string MPY(string var) {
+    return "MPY " + var + newLine;
+}
+
+string STORE(string var) {
+    return "STORE $" + var + newLine;
+}
+
+string LOADeq(string var) {
+    return "LOAD =" + var + newLine;
+}
+
+string ADDeq(string var) {
+    return "ADD =" + var + newLine;
+}
+
+string MPYeq(string var) {
+    return "MPY =" + var + newLine;
+}
 
 enum Operator {
     equal,
@@ -27,12 +57,15 @@ enum Operator {
     divide,
     multiply,
     constanta,
+    var,
     pointer,
     error
 };
 
+//MARK: - Lexema defenition
 template<typename T>
 struct Lexema {
+    int id;
     Operator opCode;
     T value = NULL;
     string varName;
@@ -53,6 +86,13 @@ int getPrecedence(char op) {
 
 int charToInt(char val){
     return (int)val - (int)48;
+}
+
+template<typename T>
+string ToString(T val){
+    stringstream ss;
+    ss << val;
+    return ss.str();
 }
 
 Operator getOperator(char val) {
@@ -91,6 +131,7 @@ string getStringOfOperator(Operator opCode){
     return " ";
 }
 
+//MARK: - Log Lexem tree
 template<typename T>
 string printLexemTree(Lexema<T>* rootLexema) {
     if (rootLexema != nullptr){
@@ -100,7 +141,7 @@ string printLexemTree(Lexema<T>* rootLexema) {
         
         if (rootLexema->opCode == Operator::constanta) {
             stringstream ss;
-            ss << rootLexema->value;
+            ss << rootLexema->value << "|id:" << rootLexema->id;
             return ss.str();
         }
     }
@@ -116,9 +157,10 @@ bool isInVector(T symbol, vector<T> v) {
     }
 }
 
+//MARK: - parseToLexems
 //parsing formula to extract lexems
 template<typename T>
-void parseToLexems(string formula) {
+Lexema<T>* parseToLexems(string formula) {
     
     vector<char> varList{ 'x' , 'y' };
     queue<char> input;
@@ -182,7 +224,7 @@ void parseToLexems(string formula) {
 //    rootLexema->leftOperand->varName = "z";
     
     Lexema<T>* temp = NULL; // = rootLexema;
-    
+    int idCounter = 0;
     while(!output.empty()){
         char operand1 = output.front();
         output.pop();
@@ -208,11 +250,15 @@ void parseToLexems(string formula) {
                 temp->leftOperand = new Lexema<T>();
                 temp->leftOperand->opCode = Operator::constanta;
                 temp->leftOperand->value = operand2;
+                temp->leftOperand->id = idCounter;
+                idCounter++;
                 
                 //setup right operand
                 temp->rightOperand = new Lexema<T>();
                 temp->rightOperand->opCode = Operator::constanta;
                 temp->rightOperand->value = operand3;
+                temp->rightOperand->id = idCounter;
+                idCounter++;
             }else{
                 //root exists, so we attach tempLeaf to new root and add right leaf
                 
@@ -231,8 +277,9 @@ void parseToLexems(string formula) {
                 //setup right operand
                 temp->rightOperand = new Lexema<T>();
                 temp->rightOperand->opCode = Operator::constanta;
+                temp->rightOperand->id = idCounter;
                 temp->rightOperand->value = operand2;
-                
+                idCounter++;
             }
         }else {
             vars.push(operand1);
@@ -241,11 +288,69 @@ void parseToLexems(string formula) {
     
     //log initial expression
     cout << printLexemTree(temp) << endl;
+    return temp;
 }
 
 template<typename T>
-string lexemsToAsm(vector<Lexema<T>> lexems) {
+string extractValue(Lexema<T>* lexema) {
+    stringstream ss;
+    ss << lexema->value;
+    return ss.str();
+}
 
+template<typename T>
+string extractId(Lexema<T>* lexema) {
+    stringstream ss;
+    ss << lexema->id;
+    return ss.str();
+}
+
+
+//convert binary lexem tree to abstract assembly language
+template<typename T>
+string lexemsToAsm(Lexema<T>* rootLexema) {
+    if (rootLexema != nullptr){
+           if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide ){
+//                printLexemTree(rootLexema->leftOperand) + getStringOfOperator(rootLexema->opCode) + printLexemTree(rootLexema->rightOperand);
+               
+               string ret1 = lexemsToAsm(rootLexema->leftOperand);
+               string ret2 = lexemsToAsm(rootLexema->rightOperand);
+               if(ret1.size() == ret2.size() ){
+                   string retRes = extractValue(rootLexema->leftOperand) + '|' + extractValue(rootLexema->rightOperand);
+                   cout << retRes << endl;
+                   string resultAssemblyCode = "";
+                   resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
+                   resultAssemblyCode += STORE(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
+                   
+                   switch (rootLexema->opCode) {
+                       case Operator::minus:
+                           
+                           break;
+                       case Operator::plus:
+                           resultAssemblyCode += ADD(extractId(rootLexema->rightOperand));
+                           break;
+                           
+                       case Operator::multiply:
+                           resultAssemblyCode += MPY(extractId(rootLexema->rightOperand));
+                           break;
+                           
+                       case Operator::divide:
+                           
+                           break;
+                   }
+                   return resultAssemblyCode;
+               }
+               
+           }
+//
+//           if (rootLexema->opCode == Operator::constanta) {
+//               stringstream ss;
+//               ss << rootLexema->value << "|id:" << rootLexema->id;
+//               return ss.str();
+//           }
+       }
+        return "";
 }
 
 
@@ -257,8 +362,8 @@ int main(int argc, const char * argv[]) {
     string formula;
     cout << "Enter formula: ";
     getline(cin , formula);
-    parseToLexems<char>(formula);
-    
+    Lexema<char>* rootLexema = parseToLexems<char>(formula);
+    cout << lexemsToAsm<char>(rootLexema) << endl;
     
     return 0;
 }
