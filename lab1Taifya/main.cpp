@@ -22,9 +22,6 @@ using namespace std;
 
 #define newLine '\n'
 
-string LOAD(string var) {
-    return "LOAD " + var + newLine;
-}
 
 string ADD(string var) {
     return "ADD " + var + newLine;
@@ -34,7 +31,7 @@ string MPY(string var) {
     return "MPY " + var + newLine;
 }
 
-string STORE(string var) {
+string STOREmem(string var) {
     return "STORE $" + var + newLine;
 }
 
@@ -42,8 +39,20 @@ string LOADeq(string var) {
     return "LOAD =" + var + newLine;
 }
 
+string LOAD(string var) {
+    return "LOAD " + var + newLine;
+}
+
+string LOADmem(string var) {
+    return "LOAD $" + var + newLine;
+}
+
 string ADDeq(string var) {
     return "ADD =" + var + newLine;
+}
+
+string ADDmem(string var) {
+    return "ADD $" + var + newLine;
 }
 
 string MPYeq(string var) {
@@ -301,10 +310,30 @@ string extractValue(Lexema<T>* lexema) {
 template<typename T>
 string extractId(Lexema<T>* lexema) {
     stringstream ss;
-    ss << lexema->id;
+    ss << '$'<< lexema->id;
     return ss.str();
 }
 
+template<typename T>
+string getAssemblyOperator(Operator opCode , Lexema<T>* lexema){
+    switch (opCode) {
+        case Operator::minus:
+            
+            break;
+        case Operator::plus:
+            return ADD(extractId(lexema));
+            break;
+            
+        case Operator::multiply:
+            return MPY(extractId(lexema));
+            break;
+            
+        case Operator::divide:
+            
+            break;
+    }
+    return "";
+}
 
 //convert binary lexem tree to abstract assembly language
 template<typename T>
@@ -315,30 +344,32 @@ string lexemsToAsm(Lexema<T>* rootLexema) {
                
                string ret1 = lexemsToAsm(rootLexema->leftOperand);
                string ret2 = lexemsToAsm(rootLexema->rightOperand);
-               if(ret1.size() == ret2.size() ){
+               if(ret1.size() == 0 && ret2.size() == 0){
                    string retRes = extractValue(rootLexema->leftOperand) + '|' + extractValue(rootLexema->rightOperand);
                    cout << retRes << endl;
                    string resultAssemblyCode = "";
                    resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
-                   resultAssemblyCode += STORE(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
                    resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
                    
-                   switch (rootLexema->opCode) {
-                       case Operator::minus:
-                           
-                           break;
-                       case Operator::plus:
-                           resultAssemblyCode += ADD(extractId(rootLexema->rightOperand));
-                           break;
-                           
-                       case Operator::multiply:
-                           resultAssemblyCode += MPY(extractId(rootLexema->rightOperand));
-                           break;
-                           
-                       case Operator::divide:
-                           
-                           break;
-                   }
+                   
+                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand);
+                   return resultAssemblyCode;
+               }
+               if(ret1.size() == 0 && ret2.size() != 0) {
+                   string resultAssemblyCode = ret1;
+                   resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
+                   resultAssemblyCode += STOREmem(extractId(rootLexema->leftOperand));
+                   resultAssemblyCode += LOADmem(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->leftOperand);
+                   return resultAssemblyCode + ret2;
+               }
+               if(ret1.size() != 0 && ret2.size() == 0) {
+                   string resultAssemblyCode = ret1;
+                   resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
+                   resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += LOADmem(extractId(rootLexema->leftOperand));
+                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand);
                    return resultAssemblyCode;
                }
                
