@@ -68,7 +68,8 @@ enum Operator {
     constanta,
     var,
     pointer,
-    error
+    error,
+    pow
 };
 
 //MARK: - Lexema defenition
@@ -87,7 +88,7 @@ int getPrecedence(char op) {
     if (op == '+' || op == '-'){
         return 1;
     }
-    if(op == '*' || op == '/' ){
+    if(op == '*' || op == '/' || '^'){
         return 2;
     }
     return 0;
@@ -118,6 +119,9 @@ Operator getOperator(char val) {
         case '/':
             return Operator::divide;
             break;
+        case '^':
+            return Operator::pow;
+            break;
         default:
             return Operator::error;
             break;
@@ -137,6 +141,9 @@ string getStringOfOperator(Operator opCode){
     if (opCode == Operator::divide ) {
         return " / ";
     }
+    if (opCode == Operator::pow ) {
+        return " ^ ";
+    }
     return " ";
 }
 
@@ -144,13 +151,18 @@ string getStringOfOperator(Operator opCode){
 template<typename T>
 string printLexemTree(Lexema<T>* rootLexema) {
     if (rootLexema != nullptr){
-        if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide ){
+        if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide || rootLexema->opCode == Operator::pow){
             return printLexemTree(rootLexema->leftOperand) + getStringOfOperator(rootLexema->opCode) + printLexemTree(rootLexema->rightOperand);
         }
         
         if (rootLexema->opCode == Operator::constanta) {
             stringstream ss;
-            ss << rootLexema->value << "|id:" << rootLexema->id;
+            ss << rootLexema->value << "|id(const):" << rootLexema->id;
+            return ss.str();
+        }
+        if (rootLexema->opCode == Operator::var) {
+            stringstream ss;
+            ss << rootLexema->value << "|id(var):" << rootLexema->id;
             return ss.str();
         }
     }
@@ -172,6 +184,7 @@ template<typename T>
 Lexema<T>* parseToLexems(string formula) {
     
     vector<char> varList{ 'x' , 'y' };
+    vector<char> numbers{'1','2','3','4','5','6','7','8','9','0'};
     queue<char> input;
     queue<char> output;
     stack<char> opStack;
@@ -187,10 +200,10 @@ Lexema<T>* parseToLexems(string formula) {
         input.pop();
    
         
-        if (val == '+' || val == '-'  || val == '*' || val == '/') {
+        if (val == '+' || val == '-'  || val == '*' || val == '/' || val == '^') {
             if (!opStack.empty()){
                 char top = opStack.top();
-                if((getPrecedence(top) > getPrecedence(val) || val == '-')) {
+                if((getPrecedence(top) > getPrecedence(val) || val == '-' || val == '^')) {
                    while(!opStack.empty()){
                        char op = opStack.top();
                        opStack.pop();
@@ -200,7 +213,7 @@ Lexema<T>* parseToLexems(string formula) {
                 }
             }
             opStack.push(val);
-        }else if (isInVector(val,varList)){
+        }else if (isInVector(val,varList) || isInVector(val, numbers)){
             output.push(val);
         }
     }
@@ -238,7 +251,7 @@ Lexema<T>* parseToLexems(string formula) {
     while(!output.empty()){
         char operand1 = output.front();
         output.pop();
-        if ( operand1 == '-' || operand1 == '+' || operand1 == '*' || operand1 == '/'){
+        if ( operand1 == '-' || operand1 == '+' || operand1 == '*' || operand1 == '/' || operand1 == '^'){
             
             //TODO: DEBUG on more than 4 vars
             char operand2 = vars.top();
@@ -258,14 +271,24 @@ Lexema<T>* parseToLexems(string formula) {
                 
                 //setup left operand
                 temp->leftOperand = new Lexema<T>();
-                temp->leftOperand->opCode = Operator::constanta;
+                if(isInVector<char>(operand2, varList)){
+                    temp->leftOperand->opCode = Operator::var;
+                }else {
+                    temp->leftOperand->opCode = Operator::constanta;
+                }
+                
                 temp->leftOperand->value = operand2;
                 temp->leftOperand->id = idCounter;
                 idCounter++;
                 
                 //setup right operand
                 temp->rightOperand = new Lexema<T>();
-                temp->rightOperand->opCode = Operator::constanta;
+                if(isInVector<char>(operand3, varList)){
+                    temp->rightOperand->opCode = Operator::var;
+                }else {
+                    temp->rightOperand->opCode = Operator::constanta;
+                }
+                
                 temp->rightOperand->value = operand3;
                 temp->rightOperand->id = idCounter;
                 idCounter++;
@@ -287,7 +310,11 @@ Lexema<T>* parseToLexems(string formula) {
                 
                 //setup right operand
                 temp->rightOperand = new Lexema<T>();
-                temp->rightOperand->opCode = Operator::constanta;
+                if(isInVector(operand2, varList)){
+                    temp->rightOperand->opCode = Operator::var;
+                }else {
+                    temp->rightOperand->opCode = Operator::constanta;
+                }
                 temp->rightOperand->id = idCounter;
                 temp->rightOperand->value = operand2;
                 idCounter++;
@@ -317,22 +344,26 @@ string extractId(Lexema<T>* lexema) {
 }
 
 template<typename T>
-string getAssemblyOperator(Operator opCode , Lexema<T>* lexema){
+string getAssemblyOperator(Operator opCode , Lexema<T>* lexema,int id){
     switch (opCode) {
-        case Operator::minus:
-            
-            break;
         case Operator::plus:
-            return ADD(extractId(lexema));
+            return ADD('$' + ToString(id));
             break;
-            
         case Operator::multiply:
-            return MPY(extractId(lexema));
+            return MPY('$' + ToString(id));
             break;
-            
-        case Operator::divide:
-            
+        case Operator::pow:
+            stringstream ss;
+            ss << lexema->value;
+            int power;
+            ss >> power;
+            ss.clear();
+            for(int i = 0; i < power; i++){
+                ss << MPY('$' + ToString(id));
+            }
+            return ss.str();
             break;
+       
     }
     return "";
 }
@@ -340,8 +371,11 @@ string getAssemblyOperator(Operator opCode , Lexema<T>* lexema){
 //convert binary lexem tree to abstract assembly language
 template<typename T>
 string lexemsToAsm(Lexema<T>* rootLexema) {
+    static int memCounter = 0;
+    static string lastParesed = "";
+    
     if (rootLexema != nullptr){
-           if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide ){
+           if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide || rootLexema->opCode == Operator::pow ){
 //                printLexemTree(rootLexema->leftOperand) + getStringOfOperator(rootLexema->opCode) + printLexemTree(rootLexema->rightOperand);
                
                string ret1 = lexemsToAsm(rootLexema->leftOperand);
@@ -351,27 +385,35 @@ string lexemsToAsm(Lexema<T>* rootLexema) {
                    cout << retRes << endl;
                    string resultAssemblyCode = "";
                    resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
-                   resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
+                   //resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += STOREmem(ToString<int>(memCounter));
                    resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
                    
-                   
-                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand);
+                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand,memCounter);
+                   lastParesed = resultAssemblyCode;
                    return resultAssemblyCode;
                }
                if(ret1.size() == 0 && ret2.size() != 0) {
-                   string resultAssemblyCode = ret1;
-                   resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
-                   resultAssemblyCode += STOREmem(extractId(rootLexema->leftOperand));
-                   resultAssemblyCode += LOADmem(extractId(rootLexema->rightOperand));
-                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->leftOperand);
-                   return resultAssemblyCode + ret2;
+                   string resultAssemblyCode = lastParesed;
+//                   resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
+//                   resultAssemblyCode += STOREmem(extractId(rootLexema->leftOperand));
+//                   resultAssemblyCode += LOADmem(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->leftOperand,memCounter);
+                   return resultAssemblyCode ;
                }
                if(ret1.size() != 0 && ret2.size() == 0) {
-                   string resultAssemblyCode = ret1;
+                   
+                   //string resultAssemblyCode = ret1;
+                   string resultAssemblyCode = "";
+                   memCounter++;
                    resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
-                   resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
-                   resultAssemblyCode += LOADmem(extractId(rootLexema->leftOperand));
-                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand);
+                   //resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
+                   resultAssemblyCode += STOREmem(ToString<int>(memCounter));
+                   
+                   resultAssemblyCode += lastParesed;
+                    
+                   //resultAssemblyCode += LOADmem(extractId(rootLexema->leftOperand));
+                   resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand,memCounter);
                    return resultAssemblyCode;
                }
                
