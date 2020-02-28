@@ -271,7 +271,6 @@ Lexema<T>* parseToLexems(string formula) {
         //cout << output.front() << endl;
         if(!output.empty()){
             while(!output.empty() && getPrecedence(output.front()) == 1) {
-                cout << "lexem created" << endl;
                 Lexema<T>* lexema = new Lexema<T>();
                 lexema->value = output.front();
                 output.pop();
@@ -285,14 +284,12 @@ Lexema<T>* parseToLexems(string formula) {
             
             
             if(lexems.size() > 1) {
-                cout << "two lexems branch" << endl;
                 char op = output.front();
                 output.pop();
                 Operator opCode = getOperator(op);
                 Lexema<T>* newRoot = mergeLexems(lexems,opCode);
                 lexems.push(newRoot);
             }else if(lexems.size() == 1) {
-                cout << "one lexems branch" << endl;
                 char op = output.front();
                 output.pop();
                 
@@ -395,6 +392,10 @@ string lexemsToAsm(Lexema<T>* rootLexema) {
                    resultAssemblyCode += lastParesed;
                    resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand,memCounter);
                    return resultAssemblyCode;
+               }
+               if(ret1.size() != 0 && ret2.size() != 0){
+                   cout << "branch 4" << endl;
+                   return ret1 + ret2;
                }
                
            }
