@@ -86,12 +86,15 @@ struct Lexema {
 
 int getPrecedence(char op) {
     if (op == '+' || op == '-'){
-        return 1;
-    }
-    if(op == '*' || op == '/' || '^'){
         return 2;
     }
-    return 0;
+    if(op == '*' || op == '/'){
+        return 3;
+    }
+    if(op == '^' ){
+        return 4;
+    }
+    return 1;
 }
 
 int charToInt(char val){
@@ -201,17 +204,19 @@ Lexema<T>* parseToLexems(string formula) {
    
         
         if (val == '+' || val == '-'  || val == '*' || val == '/' || val == '^') {
-            if (!opStack.empty()){
-                char top = opStack.top();
-                if((getPrecedence(top) > getPrecedence(val) || val == '-' || val == '^')) {
-                   while(!opStack.empty()){
+            
+            //FULL REWORKED
+            //if (!opStack.empty()){
+                //char top =
+                //MARK: - changed > to >= TODO: - NEED TEST!!!
+                   while(!opStack.empty() &&( getPrecedence(opStack.top()) >= getPrecedence(val) || val == '-' )) {
                        char op = opStack.top();
                        opStack.pop();
                        output.push(op);
                        cout << op << ' ';
                    }
-                }
-            }
+                
+            //}
             opStack.push(val);
         }else if (isInVector(val,varList) || isInVector(val, numbers)){
             output.push(val);
@@ -253,72 +258,112 @@ Lexema<T>* parseToLexems(string formula) {
         output.pop();
         if ( operand1 == '-' || operand1 == '+' || operand1 == '*' || operand1 == '/' || operand1 == '^'){
             
+            
             //TODO: DEBUG on more than 4 vars
             char operand2 = vars.top();
             vars.pop();
-            char operand3;
-            if(flag){
-                operand3 = vars.top();
+            
+            if(!vars.empty() && temp != NULL){
+                char operand3 = vars.top();
                 vars.pop();
+                
+                Lexema<T>* newRoot = new Lexema<T>;
+                newRoot->leftOperand = temp;
+                char op = output.front();
+                output.pop();
+                newRoot->opCode = getOperator(op);
+                
+                Lexema<T>* rightLeaf = new Lexema<T>();
+                Lexema<T>* rightOpLexema = new Lexema<T>();
+                Lexema<T>* leftOpLexem = new Lexema<T>();
+                
+                
+                rightOpLexema->value = operand2;
+                if(isInVector<char>(operand2, varList)){
+                    rightOpLexema->opCode = Operator::var;
+                }else {
+                    rightOpLexema->opCode = Operator::constanta;
+                }
+                leftOpLexem->value = operand3;
+                if(isInVector<char>(operand3, varList)){
+                    leftOpLexem->opCode = Operator::var;
+                }else {
+                    leftOpLexem->opCode = Operator::constanta;
+                }
+                rightLeaf->leftOperand = leftOpLexem;
+                rightLeaf->rightOperand = rightOpLexema;
+                
+                newRoot->rightOperand = rightLeaf;
+                newRoot->rightOperand->opCode = getOperator(operand1);
+                 
+                }
+            
+            }else{
+                if (temp == NULL) {
+                    //if there is not root -> create new root
+                    char operand3;
+                    if(!vars.empty() ){
+                        operand3 = vars.top();
+                        vars.pop();
+                    }
+                    temp = new Lexema<T>();
+                    
+                    //setup type of operation
+                    temp->opCode = getOperator(operand1);
+                    
+                    //setup left operand
+                    temp->leftOperand = new Lexema<T>();
+                    if(isInVector<char>(operand2, varList)){
+                        temp->leftOperand->opCode = Operator::var;
+                    }else {
+                        temp->leftOperand->opCode = Operator::constanta;
+                    }
+                    
+                    temp->leftOperand->value = operand2;
+                    temp->leftOperand->id = idCounter;
+                    idCounter++;
+                    
+                    //setup right operand
+                    temp->rightOperand = new Lexema<T>();
+                    if(isInVector<char>(operand3, varList)){
+                        temp->rightOperand->opCode = Operator::var;
+                    }else {
+                        temp->rightOperand->opCode = Operator::constanta;
+                    }
+                    
+                    temp->rightOperand->value = operand3;
+                    temp->rightOperand->id = idCounter;
+                    idCounter++;
+                    flag = vars.empty();
+                }else{
+                    //root exists, so we attach tempLeaf to new root and add right leaf
+                    
+                    //temp leaf is left now, so we copy pointer
+                    Lexema<T>* leftLeaf = temp;
+                    
+                    //alocating memory for new root
+                    temp = new Lexema<T>();
+                    
+                    //place old temp to left leaf
+                    temp->leftOperand = leftLeaf;
+                    
+                    //setup type of operation
+                    temp->opCode = getOperator(operand1);
+                    
+                    //setup right operand
+                    temp->rightOperand = new Lexema<T>();
+                    if(isInVector(operand2, varList)){
+                        temp->rightOperand->opCode = Operator::var;
+                    }else {
+                        temp->rightOperand->opCode = Operator::constanta;
+                    }
+                    temp->rightOperand->id = idCounter;
+                    temp->rightOperand->value = operand2;
+                    idCounter++;
+                }
             }
             
-            if (temp == NULL) {
-                //if there is not root -> create new root
-                temp = new Lexema<T>();
-                
-                //setup type of operation
-                temp->opCode = getOperator(operand1);
-                
-                //setup left operand
-                temp->leftOperand = new Lexema<T>();
-                if(isInVector<char>(operand2, varList)){
-                    temp->leftOperand->opCode = Operator::var;
-                }else {
-                    temp->leftOperand->opCode = Operator::constanta;
-                }
-                
-                temp->leftOperand->value = operand2;
-                temp->leftOperand->id = idCounter;
-                idCounter++;
-                
-                //setup right operand
-                temp->rightOperand = new Lexema<T>();
-                if(isInVector<char>(operand3, varList)){
-                    temp->rightOperand->opCode = Operator::var;
-                }else {
-                    temp->rightOperand->opCode = Operator::constanta;
-                }
-                
-                temp->rightOperand->value = operand3;
-                temp->rightOperand->id = idCounter;
-                idCounter++;
-                flag = false;
-            }else{
-                //root exists, so we attach tempLeaf to new root and add right leaf
-                
-                //temp leaf is left now, so we copy pointer
-                Lexema<T>* leftLeaf = temp;
-                
-                //alocating memory for new root
-                temp = new Lexema<T>();
-                
-                //place old temp to left leaf
-                temp->leftOperand = leftLeaf;
-                
-                //setup type of operation
-                temp->opCode = getOperator(operand1);
-                
-                //setup right operand
-                temp->rightOperand = new Lexema<T>();
-                if(isInVector(operand2, varList)){
-                    temp->rightOperand->opCode = Operator::var;
-                }else {
-                    temp->rightOperand->opCode = Operator::constanta;
-                }
-                temp->rightOperand->id = idCounter;
-                temp->rightOperand->value = operand2;
-                idCounter++;
-            }
+            
         }else {
             vars.push(operand1);
         }
