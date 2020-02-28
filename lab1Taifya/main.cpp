@@ -181,6 +181,19 @@ bool isInVector(T symbol, vector<T> v) {
     }
 }
 
+template<typename T>
+Lexema<T>* mergeLexems(stack<Lexema<T>*> &lexems, Operator opCode){
+    Lexema<T>* retLexema = new Lexema<T>();
+    auto op1 = lexems.top();
+    lexems.pop();
+    auto op2 = lexems.top();
+    lexems.pop();
+    retLexema->opCode = opCode;
+    retLexema->leftOperand = op1;
+    retLexema->rightOperand = op2;
+    return retLexema;
+}
+
 //MARK: - parseToLexems
 //parsing formula to extract lexems
 template<typename T>
@@ -252,126 +265,59 @@ Lexema<T>* parseToLexems(string formula) {
     
     Lexema<T>* temp = NULL; // = rootLexema;
     int idCounter = 0;
-    bool flag = true;
-    while(!output.empty()){
-        char operand1 = output.front();
-        output.pop();
-        if ( operand1 == '-' || operand1 == '+' || operand1 == '*' || operand1 == '/' || operand1 == '^'){
-            
-            
-            //TODO: DEBUG on more than 4 vars
-            char operand2 = vars.top();
-            vars.pop();
-            
-            if(!vars.empty() && temp != NULL){
-                char operand3 = vars.top();
-                vars.pop();
-                
-                Lexema<T>* newRoot = new Lexema<T>;
-                newRoot->leftOperand = temp;
-                char op = output.front();
+    stack<Lexema<T>*> lexems;
+    while(!output.empty()) {
+        //push until operator
+        //cout << output.front() << endl;
+        if(!output.empty()){
+            while(!output.empty() && getPrecedence(output.front()) == 1) {
+                cout << "lexem created" << endl;
+                Lexema<T>* lexema = new Lexema<T>();
+                lexema->value = output.front();
                 output.pop();
-                newRoot->opCode = getOperator(op);
-                
-                Lexema<T>* rightLeaf = new Lexema<T>();
-                Lexema<T>* rightOpLexema = new Lexema<T>();
-                Lexema<T>* leftOpLexem = new Lexema<T>();
-                
-                
-                rightOpLexema->value = operand2;
-                if(isInVector<char>(operand2, varList)){
-                    rightOpLexema->opCode = Operator::var;
-                }else {
-                    rightOpLexema->opCode = Operator::constanta;
-                }
-                leftOpLexem->value = operand3;
-                if(isInVector<char>(operand3, varList)){
-                    leftOpLexem->opCode = Operator::var;
-                }else {
-                    leftOpLexem->opCode = Operator::constanta;
-                }
-                rightLeaf->leftOperand = leftOpLexem;
-                rightLeaf->rightOperand = rightOpLexema;
-                
-                newRoot->rightOperand = rightLeaf;
-                newRoot->rightOperand->opCode = getOperator(operand1);
-                 
-                }
-            
-            }else{
-                if (temp == NULL) {
-                    //if there is not root -> create new root
-                    char operand3;
-                    if(!vars.empty() ){
-                        operand3 = vars.top();
-                        vars.pop();
-                    }
-                    temp = new Lexema<T>();
-                    
-                    //setup type of operation
-                    temp->opCode = getOperator(operand1);
-                    
-                    //setup left operand
-                    temp->leftOperand = new Lexema<T>();
-                    if(isInVector<char>(operand2, varList)){
-                        temp->leftOperand->opCode = Operator::var;
-                    }else {
-                        temp->leftOperand->opCode = Operator::constanta;
-                    }
-                    
-                    temp->leftOperand->value = operand2;
-                    temp->leftOperand->id = idCounter;
-                    idCounter++;
-                    
-                    //setup right operand
-                    temp->rightOperand = new Lexema<T>();
-                    if(isInVector<char>(operand3, varList)){
-                        temp->rightOperand->opCode = Operator::var;
-                    }else {
-                        temp->rightOperand->opCode = Operator::constanta;
-                    }
-                    
-                    temp->rightOperand->value = operand3;
-                    temp->rightOperand->id = idCounter;
-                    idCounter++;
-                    flag = vars.empty();
+                if(isInVector(lexema->value, varList)){
+                    lexema->opCode = Operator::var;
                 }else{
-                    //root exists, so we attach tempLeaf to new root and add right leaf
-                    
-                    //temp leaf is left now, so we copy pointer
-                    Lexema<T>* leftLeaf = temp;
-                    
-                    //alocating memory for new root
-                    temp = new Lexema<T>();
-                    
-                    //place old temp to left leaf
-                    temp->leftOperand = leftLeaf;
-                    
-                    //setup type of operation
-                    temp->opCode = getOperator(operand1);
-                    
-                    //setup right operand
-                    temp->rightOperand = new Lexema<T>();
-                    if(isInVector(operand2, varList)){
-                        temp->rightOperand->opCode = Operator::var;
-                    }else {
-                        temp->rightOperand->opCode = Operator::constanta;
-                    }
-                    temp->rightOperand->id = idCounter;
-                    temp->rightOperand->value = operand2;
-                    idCounter++;
+                    lexema->opCode = Operator::constanta;
                 }
+                lexems.push(lexema);
             }
             
             
-        }else {
-            vars.push(operand1);
+            if(lexems.size() > 1) {
+                cout << "two lexems branch" << endl;
+                char op = output.front();
+                output.pop();
+                Operator opCode = getOperator(op);
+                Lexema<T>* newRoot = mergeLexems(lexems,opCode);
+                lexems.push(newRoot);
+            }else if(lexems.size() == 1) {
+                cout << "one lexems branch" << endl;
+                char op = output.front();
+                output.pop();
+                
+                char op1 = output.front();
+                output.pop();
+                Lexema<T>* rightLexema = new Lexema<T>();
+                rightLexema->value = op1;
+                if(isInVector(rightLexema->value, varList)){
+                    rightLexema->opCode = Operator::var;
+                }else{
+                    rightLexema->opCode = Operator::constanta;
+                }
+                lexems.push(rightLexema);
+                Operator opCode = getOperator(op);
+                Lexema<T>* newRoot = mergeLexems(lexems,opCode);
+                lexems.push(newRoot);
+            }
         }
+
     }
     
+    Lexema<T>* lexema = lexems.top();
     //log initial expression
-    cout << printLexemTree(temp) << endl;
-    return temp;
+    cout << printLexemTree(lexema) << endl;
+    return lexema;
 }
 
 template<typename T>
@@ -421,8 +367,6 @@ string lexemsToAsm(Lexema<T>* rootLexema) {
     
     if (rootLexema != nullptr){
            if(rootLexema->opCode == Operator::plus || rootLexema->opCode == Operator::minus || rootLexema->opCode == Operator::multiply || rootLexema->opCode == Operator::divide || rootLexema->opCode == Operator::pow ){
-//                printLexemTree(rootLexema->leftOperand) + getStringOfOperator(rootLexema->opCode) + printLexemTree(rootLexema->rightOperand);
-               
                string ret1 = lexemsToAsm(rootLexema->leftOperand);
                string ret2 = lexemsToAsm(rootLexema->rightOperand);
                if(ret1.size() == 0 && ret2.size() == 0){
@@ -430,7 +374,6 @@ string lexemsToAsm(Lexema<T>* rootLexema) {
                    cout << retRes << endl;
                    string resultAssemblyCode = "";
                    resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
-                   //resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
                    resultAssemblyCode += STOREmem(ToString<int>(memCounter));
                    resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
                    
@@ -440,35 +383,22 @@ string lexemsToAsm(Lexema<T>* rootLexema) {
                }
                if(ret1.size() == 0 && ret2.size() != 0) {
                    string resultAssemblyCode = lastParesed;
-//                   resultAssemblyCode += LOAD(extractValue(rootLexema->leftOperand));
-//                   resultAssemblyCode += STOREmem(extractId(rootLexema->leftOperand));
-//                   resultAssemblyCode += LOADmem(extractId(rootLexema->rightOperand));
                    resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->leftOperand,memCounter);
                    return resultAssemblyCode ;
                }
                if(ret1.size() != 0 && ret2.size() == 0) {
                    
-                   //string resultAssemblyCode = ret1;
                    string resultAssemblyCode = "";
                    memCounter++;
                    resultAssemblyCode += LOAD(extractValue(rootLexema->rightOperand));
-                   //resultAssemblyCode += STOREmem(extractId(rootLexema->rightOperand));
                    resultAssemblyCode += STOREmem(ToString<int>(memCounter));
-                   
                    resultAssemblyCode += lastParesed;
-                    
-                   //resultAssemblyCode += LOADmem(extractId(rootLexema->leftOperand));
                    resultAssemblyCode += getAssemblyOperator(rootLexema->opCode, rootLexema->rightOperand,memCounter);
                    return resultAssemblyCode;
                }
                
            }
-//
-//           if (rootLexema->opCode == Operator::constanta) {
-//               stringstream ss;
-//               ss << rootLexema->value << "|id:" << rootLexema->id;
-//               return ss.str();
-//           }
+
        }
         return "";
 }
